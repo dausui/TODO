@@ -3,8 +3,15 @@ name: Android CI/CD
 on:
   push:
     branches: [ main, develop ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main ]
+
+env:
+  JAVA_VERSION: '17'
+  ANDROID_API_LEVEL: 34
+  ANDROID_BUILD_TOOLS: 34.0.0
 
 jobs:
   test:
@@ -13,17 +20,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 17
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: ${{ env.JAVA_VERSION }}
         distribution: 'temurin'
     
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        api-level: 34
-        build-tools: 34.0.0
+        api-level: ${{ env.ANDROID_API_LEVEL }}
+        build-tools: ${{ env.ANDROID_BUILD_TOOLS }}
+        
+    - name: Accept Android SDK licenses
+      run: yes | sdkmanager --licenses || true
     
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -60,17 +70,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 17
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: ${{ env.JAVA_VERSION }}
         distribution: 'temurin'
     
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        api-level: 34
-        build-tools: 34.0.0
+        api-level: ${{ env.ANDROID_API_LEVEL }}
+        build-tools: ${{ env.ANDROID_BUILD_TOOLS }}
+        
+    - name: Accept Android SDK licenses
+      run: yes | sdkmanager --licenses || true
     
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -102,3 +115,87 @@ jobs:
       with:
         name: app-release
         path: app/build/outputs/apk/release/app-release-unsigned.apk
+        
+    - name: Get version from tag
+      if: startsWith(github.ref, 'refs/tags/')
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download debug APK
+      uses: actions/download-artifact@v4
+      with:
+        name: app-debug
+        path: ./artifacts/
+    
+    - name: Download release APK
+      uses: actions/download-artifact@v4
+      with:
+        name: app-release
+        path: ./artifacts/
+    
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Daus Todo ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## 🚀 Daus Todo Release ${{ steps.get_version.outputs.VERSION }}
+          
+          ### 📱 What's New
+          - Bug fixes and improvements
+          - Enhanced app icon and UI
+          - Better performance and stability
+          
+          ### 📦 Downloads
+          - **app-debug.apk**: Debug version for testing
+          - **app-release-unsigned.apk**: Release version (unsigned)
+          
+          ### 🔧 Technical Details
+          - Built with Android API ${{ env.ANDROID_API_LEVEL }}
+          - Java ${{ env.JAVA_VERSION }}
+          - Material Design 3
+          - Jetpack Compose
+          
+          ### 🎯 Features
+          - ✅ Todo task management
+          - ⏰ Pomodoro timer integration
+          - 🎨 Modern Material Design
+          - 🌙 Dark/light theme support
+          - 📱 Adaptive icon support
+        draft: false
+        prerelease: false
+    
+    - name: Upload Debug APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./artifacts/app-debug.apk
+        asset_name: daus-todo-${{ steps.get_version.outputs.VERSION }}-debug.apk
+        asset_content_type: application/vnd.android.package-archive
+    
+    - name: Upload Release APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./artifacts/app-release-unsigned.apk
+        asset_name: daus-todo-${{ steps.get_version.outputs.VERSION }}-release.apk
+        asset_content_type: application/vnd.android.package-archive
