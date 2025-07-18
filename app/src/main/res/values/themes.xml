@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="Theme.DausTodo" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/daus_blue</item>
+        <item name="colorPrimaryVariant">@color/daus_blue_variant</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/daus_orange</item>
+        <item name="colorSecondaryVariant">@color/daus_orange</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@color/daus_blue</item>
+        
+        <!-- Splash screen -->
+        <item name="android:windowSplashScreenBackground">@color/daus_blue</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_daus_logo</item>
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
+    </style>
+</resources>

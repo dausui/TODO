@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">Daus Todo</string>
+    <string name="app_description">A modern todo app with Pomodoro timer</string>
+    
+    <!-- Navigation -->
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_pomodoro">Pomodoro</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Tasks -->
+    <string name="task_title">Task Title</string>
+    <string name="task_description">Description</string>
+    <string name="task_category">Category</string>
+    <string name="task_priority">Priority</string>
+    <string name="task_due_date">Due Date</string>
+    <string name="task_completed">Completed</string>
+    <string name="task_active">Active</string>
+    
+    <!-- Pomodoro -->
+    <string name="pomodoro_work">Work</string>
+    <string name="pomodoro_short_break">Short Break</string>
+    <string name="pomodoro_long_break">Long Break</string>
+    <string name="pomodoro_start">Start</string>
+    <string name="pomodoro_pause">Pause</string>
+    <string name="pomodoro_stop">Stop</string>
+    <string name="pomodoro_skip">Skip</string>
+    <string name="pomodoro_completed">Pomodoro Completed!</string>
+    <string name="pomodoro_work_completed">Work session completed! Time for a break.</string>
+    <string name="pomodoro_break_completed">Break completed! Ready to work?</string>
+    
+    <!-- Priority -->
+    <string name="priority_high">High</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_low">Low</string>
+    
+    <!-- Actions -->
+    <string name="action_add">Add</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_search">Search</string>
+    <string name="action_filter">Filter</string>
+    <string name="action_complete">Complete</string>
+    <string name="action_uncomplete">Mark as incomplete</string>
+    
+    <!-- Messages -->
+    <string name="msg_no_tasks">No tasks yet</string>
+    <string name="msg_no_tasks_subtitle">Add your first task to get started with productivity!</string>
+    <string name="msg_task_deleted">Task deleted</string>
+    <string name="msg_task_completed">Task completed</string>
+    <string name="msg_task_uncompleted">Task marked as incomplete</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_pomodoro">Pomodoro Timer</string>
+    <string name="notification_channel_pomodoro_description">Pomodoro timer notifications</string>
+    <string name="notification_pomodoro_running">Pomodoro running</string>
+    <string name="notification_pomodoro_paused">Pomodoro paused</string>
+    
+    <!-- Content Descriptions -->
+    <string name="cd_back">Back</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_filter">Filter</string>
+    <string name="cd_add_task">Add Task</string>
+    <string name="cd_edit_task">Edit Task</string>
+    <string name="cd_delete_task">Delete Task</string>
+    <string name="cd_complete_task">Complete Task</string>
+    <string name="cd_start_pomodoro">Start Pomodoro</string>
+    <string name="cd_timer">Timer</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_stop">Stop</string>
+    <string name="cd_skip">Skip</string>
+</resources>

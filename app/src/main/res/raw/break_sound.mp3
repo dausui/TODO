@@ -1,0 +1,12 @@
+# This is a placeholder file for the break completion sound
+# In a real implementation, you would download or create an actual MP3 file
+# For now, this serves as a placeholder to prevent compilation errors
+# You can replace this with an actual gentle chime sound file from:
+# - freesound.org
+# - zapsplat.com
+# - or any royalty-free sound library
+#
+# The file should be a short (1-2 seconds) gentle chime or soft notification sound
+# Format: MP3 or WAV
+# Sample rate: 44.1kHz recommended
+# Bit rate: 128kbps or higher
