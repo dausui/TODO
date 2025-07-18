@@ -38,6 +38,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += listOf(
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
+        )
     }
     buildFeatures {
         compose = true
@@ -63,12 +67,14 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.1.2")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.foundation:foundation")
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.5")
     
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     
     // Room
     implementation("androidx.room:room-runtime:2.6.1")

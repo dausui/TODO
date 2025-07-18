@@ -1,34 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Dark theme -->
-    <style name="Theme.DausTodo" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.DausTodo" parent="android:Theme.Material.NoActionBar">
         <!-- Primary brand color -->
-        <item name="colorPrimary">@color/daus_blue</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorPrimaryContainer">@color/daus_blue_variant</item>
-        <item name="colorOnPrimaryContainer">@color/white</item>
-        
-        <!-- Secondary brand color -->
-        <item name="colorSecondary">@color/daus_orange</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <item name="colorSecondaryContainer">@color/daus_orange</item>
-        <item name="colorOnSecondaryContainer">@color/black</item>
-        
-        <!-- Tertiary colors -->
-        <item name="colorTertiary">@color/daus_green</item>
-        <item name="colorOnTertiary">@color/black</item>
-        
-        <!-- Error colors -->
-        <item name="colorError">@color/daus_red</item>
-        <item name="colorOnError">@color/white</item>
+        <item name="android:colorPrimary">@color/daus_blue</item>
+        <item name="android:colorPrimaryDark">@color/daus_blue_variant</item>
+        <item name="android:colorAccent">@color/daus_orange</item>
         
         <!-- Background colors -->
         <item name="android:colorBackground">@color/black</item>
-        <item name="colorOnBackground">@color/white</item>
-        
-        <!-- Surface colors -->
-        <item name="colorSurface">@color/black</item>
-        <item name="colorOnSurface">@color/white</item>
         
         <!-- Status bar color -->
         <item name="android:statusBarColor">@color/daus_blue_variant</item>
