@@ -3,6 +3,7 @@ package com.daustodo.app.ui.screens.todo
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -155,10 +156,11 @@ fun TodoScreen(
                 
                 if (taskFilter.priority != null) {
                     item {
+                        val priority = taskFilter.priority
                         FilterChip(
                             selected = true,
                             onClick = { taskViewModel.filterByPriority(null) },
-                            label = { Text("Priority: ${taskFilter.priority.displayName}") },
+                            label = { Text("Priority: ${priority?.displayName ?: "None"}") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Close,

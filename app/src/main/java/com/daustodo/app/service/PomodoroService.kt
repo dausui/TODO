@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
+import android.app.Notification
 
 @AndroidEntryPoint
 class PomodoroService : Service() {
@@ -153,7 +154,9 @@ class PomodoroService : Service() {
             }
             
             if (_pomodoroState.value.timeRemaining <= 0) {
-                completeSession()
+                serviceScope.launch {
+                    completeSession()
+                }
             }
         }
         
@@ -181,7 +184,9 @@ class PomodoroService : Service() {
     }
     
     fun skipSession() {
-        completeSession()
+        serviceScope.launch {
+            completeSession()
+        }
     }
     
     private suspend fun completeSession() {
@@ -241,7 +246,7 @@ class PomodoroService : Service() {
         }
     }
     
-    private fun createNotification(): NotificationCompat.Builder {
+    private fun createNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE
@@ -264,6 +269,7 @@ class PomodoroService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .addAction(createNotificationAction())
+            .build()
     }
     
     private fun createNotificationAction(): NotificationCompat.Action {
@@ -300,7 +306,7 @@ class PomodoroService : Service() {
     
     private fun updateNotification() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, createNotification().build())
+        notificationManager.notify(NOTIFICATION_ID, createNotification())
     }
     
     private fun showCompletionNotification(message: String) {
