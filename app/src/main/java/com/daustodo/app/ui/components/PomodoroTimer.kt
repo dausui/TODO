@@ -2,6 +2,7 @@ package com.daustodo.app.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,9 +22,6 @@ import com.daustodo.app.data.model.PomodoroState
 import com.daustodo.app.data.model.PomodoroType
 import com.daustodo.app.ui.theme.*
 import com.daustodo.app.utils.TimeUtils
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun PomodoroTimer(
