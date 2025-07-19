@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
+import kotlinx.coroutines.runBlocking
 
 @HiltViewModel
 class TaskViewModel @Inject constructor(
@@ -91,7 +92,7 @@ class TaskViewModel @Inject constructor(
                 } catch (e: Exception) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = e.message
+                        error = "Gagal memuat tugas: ${e.message}"
                     )
                 }
             }
@@ -144,7 +145,7 @@ class TaskViewModel @Inject constructor(
             } catch (e: Exception) {
                 _paginationState.value = _paginationState.value.copy(
                     isLoadingMore = false,
-                    error = e.message
+                    error = "Gagal memuat lebih banyak tugas: ${e.message}"
                 )
             }
         }
@@ -160,11 +161,16 @@ class TaskViewModel @Inject constructor(
         viewModelScope.launch {
             PerformanceMonitor.measureSuspendOperation("add_task") {
                 try {
+                    if (title.isBlank()) {
+                        _uiState.value = _uiState.value.copy(error = "Judul tugas tidak boleh kosong")
+                        return@measureSuspendOperation
+                    }
+                    
                     val task = Task(
-                        title = title,
-                        description = description,
+                        title = title.trim(),
+                        description = description.trim(),
                         priority = priority,
-                        category = category,
+                        category = category.trim(),
                         dueDate = dueDate
                     )
                     taskRepository.insertTask(task)
@@ -174,7 +180,7 @@ class TaskViewModel @Inject constructor(
                     
                     _uiState.value = _uiState.value.copy(error = null)
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(error = e.message)
+                    _uiState.value = _uiState.value.copy(error = "Gagal menambah tugas: ${e.message}")
                 }
             }
         }
@@ -184,6 +190,11 @@ class TaskViewModel @Inject constructor(
         viewModelScope.launch {
             PerformanceMonitor.measureSuspendOperation("update_task") {
                 try {
+                    if (task.title.isBlank()) {
+                        _uiState.value = _uiState.value.copy(error = "Judul tugas tidak boleh kosong")
+                        return@measureSuspendOperation
+                    }
+                    
                     taskRepository.updateTask(task)
                     
                     // Clear cache to refresh data
@@ -191,7 +202,7 @@ class TaskViewModel @Inject constructor(
                     
                     _uiState.value = _uiState.value.copy(error = null)
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(error = e.message)
+                    _uiState.value = _uiState.value.copy(error = "Gagal memperbarui tugas: ${e.message}")
                 }
             }
         }
@@ -208,7 +219,7 @@ class TaskViewModel @Inject constructor(
                     
                     _uiState.value = _uiState.value.copy(error = null)
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(error = e.message)
+                    _uiState.value = _uiState.value.copy(error = "Gagal menghapus tugas: ${e.message}")
                 }
             }
         }
@@ -225,61 +236,64 @@ class TaskViewModel @Inject constructor(
                     
                     _uiState.value = _uiState.value.copy(error = null)
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(error = e.message)
+                    _uiState.value = _uiState.value.copy(error = "Gagal mengubah status tugas: ${e.message}")
                 }
             }
         }
     }
     
-    fun updateFilter(filter: TaskFilter) {
-        _filter.value = filter
-        loadTasks()
-    }
-    
-    fun searchTasks(query: String) {
-        val newFilter = _filter.value.copy(searchQuery = query)
-        _filter.value = newFilter
-        
-        // Debounce search to avoid too many database queries
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(300) // 300ms debounce
-            if (newFilter.searchQuery == query) {
-                loadTasks()
+    fun getTaskById(taskId: Long): Task? {
+        return try {
+            // First try to get from current tasks
+            _uiState.value.tasks.find { it.id == taskId }?.let { return it }
+            
+            // If not found in current tasks, try to get from repository
+            // Note: This is a blocking call, should be handled carefully
+            runBlocking {
+                taskRepository.getTaskById(taskId)
             }
+        } catch (e: Exception) {
+            android.util.Log.e("TaskViewModel", "Error getting task by ID: $taskId", e)
+            null
         }
     }
     
+    fun searchTasks(query: String) {
+        _filter.value = _filter.value.copy(searchQuery = query)
+        loadTasks(isRefresh = true)
+    }
+    
     fun filterByCategory(category: String?) {
-        val newFilter = _filter.value.copy(category = category)
-        _filter.value = newFilter
-        loadTasks()
+        _filter.value = _filter.value.copy(category = category)
+        loadTasks(isRefresh = true)
     }
     
     fun filterByPriority(priority: Priority?) {
-        val newFilter = _filter.value.copy(priority = priority)
-        _filter.value = newFilter
-        loadTasks()
+        _filter.value = _filter.value.copy(priority = priority)
+        loadTasks(isRefresh = true)
     }
     
     fun showCompleted(show: Boolean) {
-        val newFilter = _filter.value.copy(showCompleted = show)
-        _filter.value = newFilter
-        loadTasks()
+        _filter.value = _filter.value.copy(showCompleted = show)
+        loadTasks(isRefresh = true)
     }
     
     fun showActive(show: Boolean) {
-        val newFilter = _filter.value.copy(showActive = show)
-        _filter.value = newFilter
-        loadTasks()
+        _filter.value = _filter.value.copy(showActive = show)
+        loadTasks(isRefresh = true)
+    }
+    
+    fun updateFilter(filter: TaskFilter) {
+        _filter.value = filter
+        loadTasks(isRefresh = true)
     }
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
-        _paginationState.value = _paginationState.value.copy(error = null)
     }
     
-    suspend fun getTaskById(id: Long): Task? {
-        return taskRepository.getTaskById(id)
+    fun clearPaginationError() {
+        _paginationState.value = _paginationState.value.copy(error = null)
     }
     
     fun getPerformanceReport(): String {
@@ -297,7 +311,7 @@ class TaskViewModel @Inject constructor(
                     taskCache.clear()
                     _uiState.value = _uiState.value.copy(error = null)
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(error = e.message)
+                    _uiState.value = _uiState.value.copy(error = "Gagal menyelesaikan tugas batch: ${e.message}")
                 }
             }
         }
@@ -313,7 +327,7 @@ class TaskViewModel @Inject constructor(
                     taskCache.clear()
                     _uiState.value = _uiState.value.copy(error = null)
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(error = e.message)
+                    _uiState.value = _uiState.value.copy(error = "Gagal menghapus tugas batch: ${e.message}")
                 }
             }
         }
