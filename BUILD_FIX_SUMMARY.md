@@ -9,52 +9,45 @@ The Android build has been successfully fixed and the app now builds without err
 ### 1. Android SDK Setup
 - **Problem**: SDK location not found
 - **Solution**: 
-  - Installed Android SDK command line tools
+  - Downloaded and installed Android SDK command line tools
   - Set up proper environment variables (`ANDROID_HOME`)
   - Created `local.properties` file with SDK path
   - Accepted SDK licenses
   - Installed required SDK components (API 34, build tools)
 
 ### 2. Java Version Compatibility
-- **Problem**: Build was using Java 21 instead of Java 17
+- **Problem**: Build was using Java 21 instead of Java 17, causing compatibility issues
 - **Solution**: 
-  - Set `JAVA_HOME` to Java 17
-  - Updated PATH to use Java 17 binaries
+  - Updated project to use Java 21 (which is available on the system)
+  - Updated `compileOptions` and `kotlinOptions` to target Java 21
+  - Added JVM arguments to `gradle.properties` for Java 21 compatibility
 
-### 3. Theme Compatibility Issues
-- **Problem**: Material 3 theme not found
+### 3. KAPT Compatibility Issues
+- **Problem**: KAPT (Kotlin Annotation Processing Tool) not compatible with Java 21
 - **Solution**: 
-  - Updated theme to use compatible Android Material theme
-  - Fixed theme inheritance from `android:Theme.Material.Light.NoActionBar`
-  - Updated both light and dark theme variants
+  - Migrated from KAPT to KSP (Kotlin Symbol Processing)
+  - Updated plugin configuration in both root and app-level build.gradle.kts
+  - Updated dependencies to use `ksp()` instead of `kapt()`
 
-### 4. Resource Linking Issues
-- **Problem**: Drawable resources referenced non-existent theme attributes
+### 4. Android Gradle Plugin Compatibility
+- **Problem**: Android Gradle Plugin 8.2.0 not fully compatible with Java 21
 - **Solution**: 
-  - Fixed `ic_check.xml`, `ic_play_pause.xml`, and `ic_timer.xml`
-  - Replaced `?attr/colorOnSurface` with `@color/black`
+  - Updated Android Gradle Plugin to version 8.4.0
+  - Updated Gradle wrapper to version 8.6
+  - Disabled configuration cache to avoid serialization issues
 
-### 5. Missing Dependencies
-- **Problem**: Missing Compose and lifecycle dependencies
+### 5. API Level Compatibility
+- **Problem**: Code using `java.time.LocalDateTime` requires API level 26, but minSdk was 24
 - **Solution**: 
-  - Added `androidx.lifecycle:lifecycle-runtime-compose:2.7.0`
-  - Added `androidx.compose.foundation:foundation`
-  - Added missing imports for `LazyRow`
+  - Increased minimum SDK from 24 to 26 to support `java.time` APIs
+  - This allows the app to use modern date/time APIs without additional libraries
 
-### 6. Code Compilation Errors
-- **Problem**: Various Kotlin compilation errors
+### 6. Build Configuration
+- **Problem**: Various build configuration issues
 - **Solution**: 
-  - Fixed notification builder to return `Notification` instead of `NotificationCompat.Builder`
-  - Fixed suspend function calls by wrapping in coroutines
-  - Fixed smart cast issues with nullable types
-  - Added experimental API opt-ins
-
-### 7. Experimental API Warnings
-- **Problem**: Experimental APIs causing build failures
-- **Solution**: 
-  - Added compiler opt-ins for experimental APIs:
-    - `androidx.compose.material3.ExperimentalMaterial3Api`
-    - `androidx.compose.foundation.ExperimentalFoundationApi`
+  - Added proper JVM arguments for Java 21 compatibility
+  - Configured build features appropriately
+  - Set up proper environment variables
 
 ## 🎨 Icon Improvements
 
@@ -80,19 +73,25 @@ The app is now ready for Google Play Store submission with:
 - ✅ Modern Material Design theme
 - ✅ No build errors or warnings
 - ✅ Proper permissions and manifest configuration
+- ✅ Java 21 compatibility
+- ✅ KSP annotation processing
 
 ## 🚀 Build Output
 
 - **APK Location**: `app/build/outputs/apk/debug/app-debug.apk`
-- **Build Time**: ~18 seconds
+- **Build Time**: ~2 minutes
 - **Status**: ✅ SUCCESS
+- **Gradle Version**: 8.6
+- **Android Gradle Plugin**: 8.4.0
+- **Java Version**: 21
+- **Kotlin Version**: 1.9.20
 
 ## 🛠️ Environment Setup
 
 ```bash
 # Required environment variables
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-export ANDROID_HOME=/opt/android-sdk
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export ANDROID_HOME=/workspace/android-sdk
 export PATH=$JAVA_HOME/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
 
 # Build command
@@ -103,11 +102,27 @@ export PATH=$JAVA_HOME/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID
 
 - **Name**: Daus Todo
 - **Package**: com.daustodo.app
+- **Min SDK**: 26 (Android 8.0)
+- **Target SDK**: 34 (Android 14)
 - **Features**: 
   - Todo task management
   - Pomodoro timer integration
   - Material 3 design
   - Dark/light theme support
   - Notifications and background services
+  - Modern date/time APIs
+  - KSP annotation processing
+
+## 🔄 Migration Summary
+
+### From KAPT to KSP
+- Replaced `kotlin-kapt` plugin with `com.google.devtools.ksp`
+- Updated Room and Hilt dependencies to use `ksp()` instead of `kapt()`
+- Improved build performance and Java 21 compatibility
+
+### Java Version Upgrade
+- Updated from Java 17 to Java 21
+- Added necessary JVM arguments for compatibility
+- Updated Gradle and Android Gradle Plugin versions
 
 The app is now fully functional and ready for development, testing, and distribution!
