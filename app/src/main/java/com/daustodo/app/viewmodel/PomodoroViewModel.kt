@@ -11,6 +11,7 @@ import com.daustodo.app.data.model.PomodoroState
 import com.daustodo.app.data.model.PomodoroType
 import com.daustodo.app.data.repository.PomodoroRepository
 import com.daustodo.app.service.PomodoroService
+import com.daustodo.app.ui.screens.pomodoro.PomodoroSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +45,11 @@ class PomodoroViewModel @Inject constructor(
                         pomodoroState = state,
                         isLoading = false
                     )
+                    
+                    // Update statistics when session completes
+                    if (!state.isRunning && !state.isPaused && state.timeRemaining == 0) {
+                        loadStatistics()
+                    }
                 }
             }
         }
@@ -69,8 +75,11 @@ class PomodoroViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val todayStats = pomodoroRepository.getCompletedWorkSessionsToday()
+                val totalStats = pomodoroRepository.getTotalCompletedSessions()
+                
                 _uiState.value = _uiState.value.copy(
                     completedSessionsToday = todayStats,
+                    totalSessionsCompleted = totalStats,
                     error = null
                 )
             } catch (e: Exception) {
@@ -99,18 +108,15 @@ class PomodoroViewModel @Inject constructor(
         pomodoroService?.skipSession()
     }
     
-    fun setCustomDuration(minutes: Int) {
+    fun resetSession() {
         val currentState = _uiState.value.pomodoroState
-        _uiState.value = _uiState.value.copy(
-            pomodoroState = currentState.copy(
-                timeRemaining = minutes * 60
-            )
-        )
-    }
-    
-    fun resetToDefault() {
-        val currentState = _uiState.value.pomodoroState
-        val defaultDuration = currentState.currentType.defaultDuration * 60
+        val settings = _uiState.value.settings
+        val defaultDuration = when (currentState.currentType) {
+            PomodoroType.WORK -> settings.workDuration
+            PomodoroType.SHORT_BREAK -> settings.shortBreakDuration
+            PomodoroType.LONG_BREAK -> settings.longBreakDuration
+        } * 60
+        
         _uiState.value = _uiState.value.copy(
             pomodoroState = currentState.copy(
                 timeRemaining = defaultDuration,
@@ -118,6 +124,36 @@ class PomodoroViewModel @Inject constructor(
                 isPaused = false
             )
         )
+        
+        pomodoroService?.resetTimer(defaultDuration)
+    }
+    
+    fun updateSettings(settings: PomodoroSettings) {
+        _uiState.value = _uiState.value.copy(settings = settings)
+        
+        // Update service with new settings
+        pomodoroService?.updateSettings(settings)
+        
+        // Reset current session if timer is not running
+        val currentState = _uiState.value.pomodoroState
+        if (!currentState.isRunning && !currentState.isPaused) {
+            resetSession()
+        }
+    }
+    
+    fun setCustomDuration(minutes: Int) {
+        val currentState = _uiState.value.pomodoroState
+        _uiState.value = _uiState.value.copy(
+            pomodoroState = currentState.copy(
+                timeRemaining = minutes * 60
+            )
+        )
+        
+        pomodoroService?.setCustomDuration(minutes * 60)
+    }
+    
+    fun resetToDefault() {
+        resetSession()
     }
     
     fun clearError() {
@@ -136,6 +172,8 @@ class PomodoroViewModel @Inject constructor(
 data class PomodoroUiState(
     val pomodoroState: PomodoroState = PomodoroState(),
     val completedSessionsToday: Int = 0,
+    val totalSessionsCompleted: Int = 0,
+    val settings: PomodoroSettings = PomodoroSettings(),
     val isLoading: Boolean = true,
     val error: String? = null
 )

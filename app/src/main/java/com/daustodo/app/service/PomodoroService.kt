@@ -17,6 +17,7 @@ import com.daustodo.app.data.model.PomodoroState
 import com.daustodo.app.data.model.PomodoroType
 import com.daustodo.app.data.repository.PomodoroRepository
 import com.daustodo.app.data.repository.TaskRepository
+import com.daustodo.app.ui.screens.pomodoro.PomodoroSettings
 import com.daustodo.app.utils.SoundManager
 import com.daustodo.app.utils.TimeUtils
 import dagger.hilt.android.AndroidEntryPoint
@@ -44,6 +45,7 @@ class PomodoroService : Service() {
     
     private var timerJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var currentSettings = PomodoroSettings()
     
     private val _pomodoroState = MutableStateFlow(PomodoroState())
     val pomodoroState: StateFlow<PomodoroState> = _pomodoroState.asStateFlow()
@@ -124,9 +126,10 @@ class PomodoroService : Service() {
     fun startSession(taskId: Long?, type: PomodoroType = PomodoroType.WORK) {
         serviceScope.launch {
             currentSessionId = pomodoroRepository.startNewSession(taskId, type)
+            val duration = getDurationForType(type)
             _pomodoroState.value = _pomodoroState.value.copy(
                 currentType = type,
-                timeRemaining = TimeUtils.minutesToSeconds(type.defaultDuration),
+                timeRemaining = duration,
                 linkedTaskId = taskId,
                 isRunning = false,
                 isPaused = false
@@ -173,10 +176,11 @@ class PomodoroService : Service() {
     }
     
     fun stopTimer() {
+        val duration = getDurationForType(_pomodoroState.value.currentType)
         _pomodoroState.value = _pomodoroState.value.copy(
             isRunning = false,
             isPaused = false,
-            timeRemaining = TimeUtils.minutesToSeconds(_pomodoroState.value.currentType.defaultDuration)
+            timeRemaining = duration
         )
         timerJob?.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -186,6 +190,42 @@ class PomodoroService : Service() {
     fun skipSession() {
         serviceScope.launch {
             completeSession()
+        }
+    }
+    
+    fun resetTimer(duration: Int) {
+        _pomodoroState.value = _pomodoroState.value.copy(
+            timeRemaining = duration,
+            isRunning = false,
+            isPaused = false
+        )
+        timerJob?.cancel()
+        updateNotification()
+    }
+    
+    fun setCustomDuration(seconds: Int) {
+        _pomodoroState.value = _pomodoroState.value.copy(
+            timeRemaining = seconds
+        )
+        updateNotification()
+    }
+    
+    fun updateSettings(settings: PomodoroSettings) {
+        currentSettings = settings
+        // Update current timer if not running
+        if (!_pomodoroState.value.isRunning && !_pomodoroState.value.isPaused) {
+            val duration = getDurationForType(_pomodoroState.value.currentType)
+            _pomodoroState.value = _pomodoroState.value.copy(
+                timeRemaining = duration
+            )
+        }
+    }
+    
+    private fun getDurationForType(type: PomodoroType): Int {
+        return when (type) {
+            PomodoroType.WORK -> currentSettings.workDuration * 60
+            PomodoroType.SHORT_BREAK -> currentSettings.shortBreakDuration * 60
+            PomodoroType.LONG_BREAK -> currentSettings.longBreakDuration * 60
         }
     }
     
@@ -221,11 +261,12 @@ class PomodoroService : Service() {
             _pomodoroState.value.currentSession
         }
         
+        val nextDuration = getDurationForType(nextType)
         _pomodoroState.value = _pomodoroState.value.copy(
             isRunning = false,
             isPaused = false,
             currentType = nextType,
-            timeRemaining = TimeUtils.minutesToSeconds(nextType.defaultDuration),
+            timeRemaining = nextDuration,
             currentSession = nextSession
         )
         
@@ -236,7 +277,7 @@ class PomodoroService : Service() {
     private fun getNextSessionType(): PomodoroType {
         return when (_pomodoroState.value.currentType) {
             PomodoroType.WORK -> {
-                if (_pomodoroState.value.currentSession % 4 == 0) {
+                if (_pomodoroState.value.currentSession % currentSettings.sessionsBeforeLongBreak == 0) {
                     PomodoroType.LONG_BREAK
                 } else {
                     PomodoroType.SHORT_BREAK

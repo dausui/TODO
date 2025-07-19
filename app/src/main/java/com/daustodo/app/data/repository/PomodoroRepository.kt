@@ -27,6 +27,9 @@ class PomodoroRepository @Inject constructor(
     suspend fun getCompletedWorkSessionsToday(): Int = 
         pomodoroDao.getCompletedWorkSessionsToday(LocalDateTime.now())
     
+    suspend fun getTotalCompletedSessions(): Int = 
+        pomodoroDao.getTotalCompletedSessions()
+    
     suspend fun insertSession(session: PomodoroSession): Long = pomodoroDao.insertSession(session)
     
     suspend fun updateSession(session: PomodoroSession) = pomodoroDao.updateSession(session)

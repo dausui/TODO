@@ -19,9 +19,9 @@ fun SkeletonTaskCard(
     modifier: Modifier = Modifier
 ) {
     val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.6f),
-        Color.LightGray.copy(alpha = 0.2f),
-        Color.LightGray.copy(alpha = 0.6f)
+        Color.LightGray.copy(alpha = 0.3f),
+        Color.LightGray.copy(alpha = 0.1f),
+        Color.LightGray.copy(alpha = 0.3f)
     )
     
     val transition = rememberInfiniteTransition()
@@ -30,8 +30,8 @@ fun SkeletonTaskCard(
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 1200,
-                easing = FastOutSlowInEasing
+                durationMillis = 1500,
+                easing = LinearEasing
             ),
             repeatMode = RepeatMode.Restart
         )
@@ -46,37 +46,41 @@ fun SkeletonTaskCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(120.dp),
+            .height(140.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Title skeleton
+            // Title skeleton (longer)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(20.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(brush)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Description skeleton
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
                     .background(brush)
             )
             
             Spacer(modifier = Modifier.height(12.dp))
             
+            // Description skeleton (shorter)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(brush)
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Bottom row with priority, date, and actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -85,18 +89,44 @@ fun SkeletonTaskCard(
                 // Priority skeleton
                 Box(
                     modifier = Modifier
-                        .width(60.dp)
-                        .height(24.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .width(70.dp)
+                        .height(28.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(brush)
                 )
                 
                 // Date skeleton
                 Box(
                     modifier = Modifier
-                        .width(80.dp)
-                        .height(16.dp)
+                        .width(90.dp)
+                        .height(18.dp)
                         .clip(RoundedCornerShape(4.dp))
+                        .background(brush)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Action buttons skeleton
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                // Pomodoro button skeleton
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(brush)
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Complete button skeleton
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
                         .background(brush)
                 )
             }
@@ -106,15 +136,49 @@ fun SkeletonTaskCard(
 
 @Composable
 fun SkeletonTaskList(
-    itemCount: Int = 5,
+    itemCount: Int = 4,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         repeat(itemCount) {
             SkeletonTaskCard()
         }
+    }
+}
+
+@Composable
+fun SkeletonLoadingState(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Loading indicator
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            color = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "Loading your tasks...",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Skeleton cards
+        SkeletonTaskList(
+            itemCount = 3,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
     }
 }

@@ -27,6 +27,9 @@ interface PomodoroDao {
     @Query("SELECT COUNT(*) FROM pomodoro_sessions WHERE isCompleted = 1 AND type = 'WORK' AND DATE(startTime) = DATE(:date)")
     suspend fun getCompletedWorkSessionsToday(date: LocalDateTime): Int
     
+    @Query("SELECT COUNT(*) FROM pomodoro_sessions WHERE isCompleted = 1")
+    suspend fun getTotalCompletedSessions(): Int
+    
     @Insert
     suspend fun insertSession(session: PomodoroSession): Long
     

@@ -241,8 +241,8 @@ fun TodoScreen(
             ) {
                 when {
                     taskUiState.isLoading && taskUiState.tasks.isEmpty() -> {
-                        // Show skeleton loading for initial load
-                        SkeletonTaskList(
+                        // Show improved skeleton loading for initial load
+                        SkeletonLoadingState(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp)
