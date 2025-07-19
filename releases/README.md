@@ -22,6 +22,16 @@ This directory contains the compiled APK files for the Daus Todo application.
   - Smaller file size due to optimizations
   - Requires signing with a keystore before distribution
 
+### daus-todo-v1.0-signed.apk
+- **Type**: Release build (signed)
+- **Size**: ~13.1 MB
+- **Purpose**: Ready for distribution and installation
+- **Features**:
+  - Optimized for production
+  - Properly signed with release keystore
+  - Ready to install on Android devices
+  - Can be uploaded to Google Play Store
+
 ## Installation
 
 ### Debug APK
@@ -29,7 +39,13 @@ This directory contains the compiled APK files for the Daus Todo application.
 adb install daus-todo-v1.0-debug.apk
 ```
 
-### Release APK (after signing)
+### Release APK (signed)
+```bash
+# Install the signed APK directly
+adb install daus-todo-v1.0-signed.apk
+```
+
+### Release APK (unsigned - requires signing)
 ```bash
 # First sign the APK with your keystore
 jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore your-keystore.jks daus-todo-v1.0-release-unsigned.apk alias_name
