@@ -33,8 +33,8 @@ This directory contains the compiled APK files for the Daus Todo application.
   - Can be uploaded to Google Play Store
 
 ### daus-todo-v1.1-optimized.apk ⭐
-- **Type**: Release build (signed & optimized)
-- **Size**: ~13.1 MB
+- **Type**: Release build (optimized)
+- **Size**: ~3.3 MB
 - **Purpose**: Latest version with performance improvements
 - **Features**:
   - All previous features plus:
@@ -46,6 +46,17 @@ This directory contains the compiled APK files for the Daus Todo application.
   - **Database Optimizations**: Faster queries and operations
   - **Background Processing**: Non-blocking operations
 
+### daus-todo-v1.1-signed.apk ⭐
+- **Type**: Release build (signed & optimized)
+- **Size**: ~3.3 MB
+- **Purpose**: Latest signed version ready for distribution
+- **Features**:
+  - All v1.1 features plus:
+  - **Properly Signed**: APK Signature Scheme v2
+  - **Ready for Distribution**: Can be uploaded to Google Play Store
+  - **Production Ready**: Optimized and signed for release
+  - **Performance Optimizations**: All v1.1 performance improvements
+
 ## Installation
 
 ### Debug APK
@@ -55,8 +66,8 @@ adb install daus-todo-v1.0-debug.apk
 
 ### Release APK (signed)
 ```bash
-# Install the signed APK directly
-adb install daus-todo-v1.0-signed.apk
+# Install the latest signed APK directly
+adb install daus-todo-v1.1-signed.apk
 ```
 
 ### Release APK (unsigned - requires signing)
@@ -68,6 +79,15 @@ jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore your-keystore.j
 adb install daus-todo-v1.0-release-signed.apk
 ```
 
+### Manual Installation
+1. Download `daus-todo-v1.1-signed.apk` (Latest)
+2. Enable "Install from Unknown Sources" in your device settings
+3. Open the downloaded APK file
+4. Follow the installation prompts
+5. Launch the app and start managing your tasks!
+
+**Note**: The v1.1 signed APK is the latest version with all performance optimizations and is ready for production use.
+
 ## App Information
 
 - **Package Name**: com.daustodo.app
@@ -75,6 +95,7 @@ adb install daus-todo-v1.0-release-signed.apk
 - **Min SDK**: 26 (Android 8.0)
 - **Target SDK**: 34 (Android 14)
 - **Build Date**: July 19, 2025
+- **Signature**: APK Signature Scheme v2
 
 ## Features
 
