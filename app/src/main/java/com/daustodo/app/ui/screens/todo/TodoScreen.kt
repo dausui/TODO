@@ -20,10 +20,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daustodo.app.data.model.Priority
 import com.daustodo.app.data.model.Task
 import com.daustodo.app.data.model.TaskFilter
-import com.daustodo.app.ui.components.PomodoroMiniTimer
-import com.daustodo.app.ui.components.TaskCard
+import com.daustodo.app.ui.components.*
 import com.daustodo.app.viewmodel.PomodoroViewModel
 import com.daustodo.app.viewmodel.TaskViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,16 +31,19 @@ fun TodoScreen(
     onNavigateToAddTask: () -> Unit,
     onNavigateToEditTask: (Long) -> Unit,
     onNavigateToPomodoro: (Long?) -> Unit,
+    onNavigateToPerformance: () -> Unit = {},
     taskViewModel: TaskViewModel = hiltViewModel(),
     pomodoroViewModel: PomodoroViewModel = hiltViewModel()
 ) {
     val taskUiState by taskViewModel.uiState.collectAsStateWithLifecycle()
     val taskFilter by taskViewModel.filter.collectAsStateWithLifecycle()
+    val paginationState by taskViewModel.paginationState.collectAsStateWithLifecycle()
     val pomodoroUiState by pomodoroViewModel.uiState.collectAsStateWithLifecycle()
     
     var showFilterDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
     
     // Update search when query changes
     LaunchedEffect(searchQuery) {
@@ -74,6 +77,16 @@ fun TodoScreen(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search"
+                    )
+                }
+                
+                // Performance Monitor Button
+                IconButton(
+                    onClick = onNavigateToPerformance
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Speed,
+                        contentDescription = "Performance Monitor"
                     )
                 }
                 
@@ -214,44 +227,53 @@ fun TodoScreen(
                 .fillMaxSize()
                 .weight(1f)
         ) {
-            when {
-                taskUiState.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+            PullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    taskViewModel.refreshTasks()
+                    // Simulate refresh delay
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                        kotlinx.coroutines.delay(1000)
+                        isRefreshing = false
+                    }
                 }
-                
-                taskUiState.tasks.isEmpty() -> {
-                    EmptyTasksState(
-                        onAddTaskClick = onNavigateToAddTask,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
+            ) {
+                when {
+                    taskUiState.isLoading && taskUiState.tasks.isEmpty() -> {
+                        // Show skeleton loading for initial load
+                        SkeletonTaskList(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                        )
+                    }
+                    
+                    taskUiState.tasks.isEmpty() -> {
+                        EmptyTasksState(
+                            onAddTaskClick = onNavigateToAddTask,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                    
+                    else -> {
+                        LazyLoadingList(
                             items = taskUiState.tasks,
-                            key = { it.id }
-                        ) { task ->
-                            TaskCard(
-                                task = task,
-                                onTaskClick = { onNavigateToEditTask(it.id) },
-                                onCompleteClick = { taskViewModel.toggleTaskCompletion(it) },
-                                onDeleteClick = { taskViewModel.deleteTask(it) },
-                                onPomodoroClick = { onNavigateToPomodoro(it) },
-                                modifier = Modifier.animateItemPlacement()
-                            )
-                        }
-                        
-                        // Bottom spacing for FAB
-                        item {
-                            Spacer(modifier = Modifier.height(80.dp))
-                        }
+                            isLoading = paginationState.isLoadingMore,
+                            hasMoreItems = paginationState.hasMoreItems,
+                            onLoadMore = { taskViewModel.loadMoreTasks() },
+                            modifier = Modifier.fillMaxSize(),
+                            itemContent = { task ->
+                                TaskCard(
+                                    task = task,
+                                    onTaskClick = { onNavigateToEditTask(task.id) },
+                                    onCompleteClick = { taskViewModel.toggleTaskCompletion(task.id) },
+                                    onDeleteClick = { taskViewModel.deleteTask(task) },
+                                    onPomodoroClick = { onNavigateToPomodoro(task.id) },
+                                    modifier = Modifier
+                                )
+                            }
+                        )
                     }
                 }
             }

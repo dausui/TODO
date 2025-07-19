@@ -32,6 +32,20 @@ This directory contains the compiled APK files for the Daus Todo application.
   - Ready to install on Android devices
   - Can be uploaded to Google Play Store
 
+### daus-todo-v1.1-optimized.apk ⭐
+- **Type**: Release build (signed & optimized)
+- **Size**: ~13.1 MB
+- **Purpose**: Latest version with performance improvements
+- **Features**:
+  - All previous features plus:
+  - **Performance Optimizations**: Lazy loading, caching, pagination
+  - **Pull-to-Refresh**: Smooth refresh experience
+  - **Skeleton Loading**: Better perceived performance
+  - **Batch Operations**: Multi-select and bulk actions
+  - **Performance Monitoring**: Built-in performance tracking
+  - **Database Optimizations**: Faster queries and operations
+  - **Background Processing**: Non-blocking operations
+
 ## Installation
 
 ### Debug APK
@@ -57,13 +71,14 @@ adb install daus-todo-v1.0-release-signed.apk
 ## App Information
 
 - **Package Name**: com.daustodo.app
-- **Version**: 1.0
+- **Version**: 1.1 (Latest)
 - **Min SDK**: 26 (Android 8.0)
 - **Target SDK**: 34 (Android 14)
 - **Build Date**: July 19, 2025
 
 ## Features
 
+### Core Features
 - ✅ Todo task management
 - ✅ Pomodoro timer integration
 - ✅ Material 3 design
@@ -71,6 +86,18 @@ adb install daus-todo-v1.0-release-signed.apk
 - ✅ Notifications and background services
 - ✅ Modern date/time APIs
 - ✅ KSP annotation processing
+
+### Performance Features (v1.1)
+- ✅ **Lazy Loading**: Efficient list rendering with pagination
+- ✅ **Pull-to-Refresh**: Smooth refresh experience
+- ✅ **Skeleton Loading**: Better perceived performance during loading
+- ✅ **Caching System**: Smart caching for faster data access
+- ✅ **Batch Operations**: Multi-select and bulk actions
+- ✅ **Performance Monitoring**: Built-in performance tracking
+- ✅ **Database Optimizations**: Faster queries and operations
+- ✅ **Background Processing**: Non-blocking operations
+- ✅ **Search Debouncing**: Reduced database queries
+- ✅ **Memory Management**: Automatic cache cleanup
 
 ## Build Information
 
