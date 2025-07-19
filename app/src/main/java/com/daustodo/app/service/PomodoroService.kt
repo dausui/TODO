@@ -1,38 +1,27 @@
 package com.daustodo.app.service
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
-import android.content.Context
+import android.app.*
 import android.content.Intent
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.daustodo.app.MainActivity
 import com.daustodo.app.R
 import com.daustodo.app.data.model.PomodoroState
 import com.daustodo.app.data.model.PomodoroType
 import com.daustodo.app.data.repository.PomodoroRepository
 import com.daustodo.app.data.repository.TaskRepository
 import com.daustodo.app.ui.screens.pomodoro.PomodoroSettings
-import com.daustodo.app.utils.SoundManager
-import com.daustodo.app.utils.TimeUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.time.LocalDateTime
 import javax.inject.Inject
-import android.app.Notification
 
 @AndroidEntryPoint
 class PomodoroService : Service() {
-    
-    @Inject
-    lateinit var soundManager: SoundManager
     
     @Inject
     lateinit var pomodoroRepository: PomodoroRepository
@@ -40,332 +29,368 @@ class PomodoroService : Service() {
     @Inject
     lateinit var taskRepository: TaskRepository
     
-    private val binder = PomodoroServiceBinder()
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    
     private var timerJob: Job? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var currentSettings = PomodoroSettings()
     
-    private val _pomodoroState = MutableStateFlow(PomodoroState())
+    private val _pomodoroState = MutableStateFlow(
+        PomodoroState(
+            timeRemaining = 25 * 60, // 25 minutes default
+            currentType = PomodoroType.WORK,
+            isRunning = false,
+            isPaused = false,
+            currentSession = 1,
+            totalSessions = 4
+        )
+    )
     val pomodoroState: StateFlow<PomodoroState> = _pomodoroState.asStateFlow()
     
-    private var currentSessionId: Long? = null
+    private var currentTaskId: Long? = null
+    private var settings = PomodoroSettings()
+    private var customDuration: Int? = null
     
-    companion object {
-        const val NOTIFICATION_ID = 1
-        const val CHANNEL_ID = "pomodoro_channel"
-        const val ACTION_START = "action_start"
-        const val ACTION_PAUSE = "action_pause"
-        const val ACTION_STOP = "action_stop"
-        const val ACTION_SKIP = "action_skip"
-    }
+    private val binder = PomodoroServiceBinder()
     
     inner class PomodoroServiceBinder : Binder() {
         fun getService(): PomodoroService = this@PomodoroService
     }
     
-    override fun onBind(intent: Intent?): IBinder = binder
-    
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "PomodoroService created")
         createNotificationChannel()
-        acquireWakeLock()
     }
     
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_START -> startTimer()
-            ACTION_PAUSE -> pauseTimer()
-            ACTION_STOP -> stopTimer()
-            ACTION_SKIP -> skipSession()
-        }
-        return START_STICKY
+    override fun onBind(intent: Intent): IBinder {
+        return binder
     }
     
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "PomodoroService destroyed")
         timerJob?.cancel()
         serviceScope.cancel()
-        releaseWakeLock()
+    }
+    
+    fun startSession(taskId: Long?, type: PomodoroType = PomodoroType.WORK) {
+        try {
+            currentTaskId = taskId
+            val duration = when (type) {
+                PomodoroType.WORK -> settings.workDuration
+                PomodoroType.SHORT_BREAK -> settings.shortBreakDuration
+                PomodoroType.LONG_BREAK -> settings.longBreakDuration
+            } * 60
+            
+            _pomodoroState.value = _pomodoroState.value.copy(
+                timeRemaining = duration,
+                currentType = type,
+                isRunning = false,
+                isPaused = false
+            )
+            
+            Log.d(TAG, "Started session: $type with duration: $duration seconds")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting session", e)
+        }
+    }
+    
+    fun startTimer() {
+        try {
+            if (_pomodoroState.value.isRunning) {
+                Log.w(TAG, "Timer is already running")
+                return
+            }
+            
+            _pomodoroState.value = _pomodoroState.value.copy(
+                isRunning = true,
+                isPaused = false
+            )
+            
+            startForeground(NOTIFICATION_ID, createNotification())
+            
+            timerJob = serviceScope.launch {
+                while (_pomodoroState.value.timeRemaining > 0 && _pomodoroState.value.isRunning) {
+                    delay(1000)
+                    _pomodoroState.value = _pomodoroState.value.copy(
+                        timeRemaining = _pomodoroState.value.timeRemaining - 1
+                    )
+                    
+                    // Update notification
+                    updateNotification()
+                }
+                
+                if (_pomodoroState.value.timeRemaining <= 0) {
+                    onSessionComplete()
+                }
+            }
+            
+            Log.d(TAG, "Timer started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting timer", e)
+            _pomodoroState.value = _pomodoroState.value.copy(
+                isRunning = false,
+                isPaused = false
+            )
+        }
+    }
+    
+    fun pauseTimer() {
+        try {
+            if (!_pomodoroState.value.isRunning) {
+                Log.w(TAG, "Timer is not running")
+                return
+            }
+            
+            _pomodoroState.value = _pomodoroState.value.copy(
+                isRunning = false,
+                isPaused = true
+            )
+            
+            timerJob?.cancel()
+            updateNotification()
+            
+            Log.d(TAG, "Timer paused")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error pausing timer", e)
+        }
+    }
+    
+    fun stopTimer() {
+        try {
+            _pomodoroState.value = _pomodoroState.value.copy(
+                isRunning = false,
+                isPaused = false
+            )
+            
+            timerJob?.cancel()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            
+            Log.d(TAG, "Timer stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping timer", e)
+        }
+    }
+    
+    fun skipSession() {
+        try {
+            timerJob?.cancel()
+            onSessionComplete()
+            
+            Log.d(TAG, "Session skipped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error skipping session", e)
+        }
+    }
+    
+    fun resetTimer(duration: Int) {
+        try {
+            timerJob?.cancel()
+            _pomodoroState.value = _pomodoroState.value.copy(
+                timeRemaining = duration,
+                isRunning = false,
+                isPaused = false
+            )
+            
+            updateNotification()
+            
+            Log.d(TAG, "Timer reset to $duration seconds")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resetting timer", e)
+        }
+    }
+    
+    fun setCustomDuration(seconds: Int) {
+        try {
+            if (seconds <= 0) {
+                Log.w(TAG, "Invalid custom duration: $seconds")
+                return
+            }
+            
+            customDuration = seconds
+            _pomodoroState.value = _pomodoroState.value.copy(
+                timeRemaining = seconds
+            )
+            
+            Log.d(TAG, "Custom duration set to $seconds seconds")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting custom duration", e)
+        }
+    }
+    
+    fun updateSettings(newSettings: PomodoroSettings) {
+        try {
+            settings = newSettings
+            
+            // Reset timer if not running
+            if (!_pomodoroState.value.isRunning && !_pomodoroState.value.isPaused) {
+                val duration = when (_pomodoroState.value.currentType) {
+                    PomodoroType.WORK -> settings.workDuration
+                    PomodoroType.SHORT_BREAK -> settings.shortBreakDuration
+                    PomodoroType.LONG_BREAK -> settings.longBreakDuration
+                } * 60
+                
+                _pomodoroState.value = _pomodoroState.value.copy(
+                    timeRemaining = duration
+                )
+            }
+            
+            Log.d(TAG, "Settings updated")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating settings", e)
+        }
+    }
+    
+    private fun onSessionComplete() {
+        try {
+            _pomodoroState.value = _pomodoroState.value.copy(
+                isRunning = false,
+                isPaused = false
+            )
+            
+            timerJob?.cancel()
+            
+            // Save session completion
+            serviceScope.launch {
+                try {
+                    val session = com.daustodo.app.data.model.PomodoroSession(
+                        taskId = currentTaskId,
+                        type = _pomodoroState.value.currentType,
+                        completedAt = LocalDateTime.now(),
+                        duration = when (_pomodoroState.value.currentType) {
+                            PomodoroType.WORK -> settings.workDuration
+                            PomodoroType.SHORT_BREAK -> settings.shortBreakDuration
+                            PomodoroType.LONG_BREAK -> settings.longBreakDuration
+                        }
+                    )
+                    
+                    pomodoroRepository.insertSession(session)
+                    
+                    // Increment task pomodoro count if it's a work session
+                    if (_pomodoroState.value.currentType == PomodoroType.WORK && currentTaskId != null) {
+                        taskRepository.incrementPomodoroCount(currentTaskId!!)
+                    }
+                    
+                    Log.d(TAG, "Session completed and saved")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving session completion", e)
+                }
+            }
+            
+            // Determine next session type
+            val currentSession = _pomodoroState.value.currentSession
+            val nextType = when {
+                _pomodoroState.value.currentType == PomodoroType.WORK -> {
+                    if (currentSession % settings.sessionsBeforeLongBreak == 0) {
+                        PomodoroType.LONG_BREAK
+                    } else {
+                        PomodoroType.SHORT_BREAK
+                    }
+                }
+                else -> PomodoroType.WORK
+            }
+            
+            val nextSession = if (nextType == PomodoroType.WORK) {
+                currentSession + 1
+            } else {
+                currentSession
+            }
+            
+            // Start next session
+            startSession(currentTaskId, nextType)
+            _pomodoroState.value = _pomodoroState.value.copy(
+                currentSession = nextSession
+            )
+            
+            updateNotification()
+            
+            Log.d(TAG, "Next session prepared: $nextType")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error completing session", e)
+        }
     }
     
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        try {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Pomodoro Timer",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Pomodoro timer notifications"
+                description = "Shows Pomodoro timer progress"
                 setShowBadge(false)
             }
             
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
-        }
-    }
-    
-    private fun acquireWakeLock() {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "DausTodo::PomodoroWakeLock"
-        )
-        wakeLock?.acquire(60 * 60 * 1000L) // 1 hour max
-    }
-    
-    private fun releaseWakeLock() {
-        wakeLock?.let { wl ->
-            if (wl.isHeld) {
-                wl.release()
-            }
-        }
-    }
-    
-    fun startSession(taskId: Long?, type: PomodoroType = PomodoroType.WORK) {
-        serviceScope.launch {
-            currentSessionId = pomodoroRepository.startNewSession(taskId, type)
-            val duration = getDurationForType(type)
-            _pomodoroState.value = _pomodoroState.value.copy(
-                currentType = type,
-                timeRemaining = duration,
-                linkedTaskId = taskId,
-                isRunning = false,
-                isPaused = false
-            )
-            updateNotification()
-        }
-    }
-    
-    fun startTimer() {
-        if (_pomodoroState.value.isRunning) return
-        
-        _pomodoroState.value = _pomodoroState.value.copy(
-            isRunning = true,
-            isPaused = false
-        )
-        
-        timerJob?.cancel()
-        timerJob = serviceScope.launch {
-            while (_pomodoroState.value.isRunning && _pomodoroState.value.timeRemaining > 0) {
-                delay(1000)
-                _pomodoroState.value = _pomodoroState.value.copy(
-                    timeRemaining = _pomodoroState.value.timeRemaining - 1
-                )
-                updateNotification()
-            }
-            
-            if (_pomodoroState.value.timeRemaining <= 0) {
-                serviceScope.launch {
-                    completeSession()
-                }
-            }
-        }
-        
-        startForeground(NOTIFICATION_ID, createNotification())
-    }
-    
-    fun pauseTimer() {
-        _pomodoroState.value = _pomodoroState.value.copy(
-            isRunning = false,
-            isPaused = true
-        )
-        timerJob?.cancel()
-        updateNotification()
-    }
-    
-    fun stopTimer() {
-        val duration = getDurationForType(_pomodoroState.value.currentType)
-        _pomodoroState.value = _pomodoroState.value.copy(
-            isRunning = false,
-            isPaused = false,
-            timeRemaining = duration
-        )
-        timerJob?.cancel()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-    
-    fun skipSession() {
-        serviceScope.launch {
-            completeSession()
-        }
-    }
-    
-    fun resetTimer(duration: Int) {
-        _pomodoroState.value = _pomodoroState.value.copy(
-            timeRemaining = duration,
-            isRunning = false,
-            isPaused = false
-        )
-        timerJob?.cancel()
-        updateNotification()
-    }
-    
-    fun setCustomDuration(seconds: Int) {
-        _pomodoroState.value = _pomodoroState.value.copy(
-            timeRemaining = seconds
-        )
-        updateNotification()
-    }
-    
-    fun updateSettings(settings: PomodoroSettings) {
-        currentSettings = settings
-        // Update current timer if not running
-        if (!_pomodoroState.value.isRunning && !_pomodoroState.value.isPaused) {
-            val duration = getDurationForType(_pomodoroState.value.currentType)
-            _pomodoroState.value = _pomodoroState.value.copy(
-                timeRemaining = duration
-            )
-        }
-    }
-    
-    private fun getDurationForType(type: PomodoroType): Int {
-        return when (type) {
-            PomodoroType.WORK -> currentSettings.workDuration * 60
-            PomodoroType.SHORT_BREAK -> currentSettings.shortBreakDuration * 60
-            PomodoroType.LONG_BREAK -> currentSettings.longBreakDuration * 60
-        }
-    }
-    
-    private suspend fun completeSession() {
-        currentSessionId?.let { sessionId ->
-            pomodoroRepository.completeSession(sessionId)
-            
-            // Increment pomodoro count for linked task
-            _pomodoroState.value.linkedTaskId?.let { taskId ->
-                if (_pomodoroState.value.currentType == PomodoroType.WORK) {
-                    taskRepository.incrementPomodoroCount(taskId)
-                }
-            }
-        }
-        
-        // Play completion sound
-        when (_pomodoroState.value.currentType) {
-            PomodoroType.WORK -> {
-                soundManager.playWorkCompleteSound()
-                showCompletionNotification("Work session completed! Time for a break.")
-            }
-            PomodoroType.SHORT_BREAK, PomodoroType.LONG_BREAK -> {
-                soundManager.playBreakCompleteSound()
-                showCompletionNotification("Break completed! Ready to work?")
-            }
-        }
-        
-        // Auto-switch to next session type
-        val nextType = getNextSessionType()
-        val nextSession = if (_pomodoroState.value.currentType == PomodoroType.WORK) {
-            _pomodoroState.value.currentSession + 1
-        } else {
-            _pomodoroState.value.currentSession
-        }
-        
-        val nextDuration = getDurationForType(nextType)
-        _pomodoroState.value = _pomodoroState.value.copy(
-            isRunning = false,
-            isPaused = false,
-            currentType = nextType,
-            timeRemaining = nextDuration,
-            currentSession = nextSession
-        )
-        
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-    
-    private fun getNextSessionType(): PomodoroType {
-        return when (_pomodoroState.value.currentType) {
-            PomodoroType.WORK -> {
-                if (_pomodoroState.value.currentSession % currentSettings.sessionsBeforeLongBreak == 0) {
-                    PomodoroType.LONG_BREAK
-                } else {
-                    PomodoroType.SHORT_BREAK
-                }
-            }
-            PomodoroType.SHORT_BREAK, PomodoroType.LONG_BREAK -> PomodoroType.WORK
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating notification channel", e)
         }
     }
     
     private fun createNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        val state = _pomodoroState.value
-        val timeText = TimeUtils.formatTime(state.timeRemaining)
-        val title = "${state.currentType.displayName} - $timeText"
-        val content = if (state.linkedTaskId != null) {
-            "Working on task • Session ${state.currentSession}/${state.totalSessions}"
-        } else {
-            "Session ${state.currentSession}/${state.totalSessions}"
+        try {
+            val state = _pomodoroState.value
+            val timeString = formatTime(state.timeRemaining)
+            val typeString = when (state.currentType) {
+                PomodoroType.WORK -> "Kerja"
+                PomodoroType.SHORT_BREAK -> "Istirahat Pendek"
+                PomodoroType.LONG_BREAK -> "Istirahat Panjang"
+            }
+            
+            val title = if (state.isRunning) {
+                "$typeString - $timeString"
+            } else if (state.isPaused) {
+                "$typeString - Dijeda"
+            } else {
+                "$typeString - Selesai"
+            }
+            
+            val content = when (state.currentType) {
+                PomodoroType.WORK -> "Fokus pada tugas Anda"
+                PomodoroType.SHORT_BREAK -> "Ambil istirahat sebentar"
+                PomodoroType.LONG_BREAK -> "Istirahat yang lebih panjang"
+            }
+            
+            return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setSmallIcon(R.drawable.ic_timer)
+                .setOngoing(true)
+                .setSilent(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating notification", e)
+            return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Pomodoro Timer")
+                .setContentText("Timer sedang berjalan")
+                .setSmallIcon(R.drawable.ic_timer)
+                .build()
         }
-        
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(R.drawable.ic_timer)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .addAction(createNotificationAction())
-            .build()
-    }
-    
-    private fun createNotificationAction(): NotificationCompat.Action {
-        val actionIntent = Intent(this, PomodoroService::class.java)
-        val actionText: String
-        val action: String
-        
-        when {
-            _pomodoroState.value.isRunning -> {
-                actionText = "Pause"
-                action = ACTION_PAUSE
-            }
-            _pomodoroState.value.isPaused -> {
-                actionText = "Resume"
-                action = ACTION_START
-            }
-            else -> {
-                actionText = "Start"
-                action = ACTION_START
-            }
-        }
-        
-        actionIntent.action = action
-        val pendingIntent = PendingIntent.getService(
-            this, 0, actionIntent, PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        return NotificationCompat.Action(
-            R.drawable.ic_play_pause,
-            actionText,
-            pendingIntent
-        )
     }
     
     private fun updateNotification() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, createNotification())
+        try {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.notify(NOTIFICATION_ID, createNotification())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating notification", e)
+        }
     }
     
-    private fun showCompletionNotification(message: String) {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Pomodoro Complete")
-            .setContentText(message)
-            .setSmallIcon(R.drawable.ic_check)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
-        
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID + 1, notification)
+    private fun formatTime(seconds: Int): String {
+        return try {
+            val minutes = seconds / 60
+            val remainingSeconds = seconds % 60
+            String.format("%02d:%02d", minutes, remainingSeconds)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error formatting time", e)
+            "00:00"
+        }
+    }
+    
+    companion object {
+        private const val TAG = "PomodoroService"
+        private const val CHANNEL_ID = "pomodoro_timer"
+        private const val NOTIFICATION_ID = 1001
     }
 }

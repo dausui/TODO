@@ -35,13 +35,22 @@ fun PomodoroScreen(
     var selectedTask by remember { mutableStateOf<Task?>(null) }
     var showTaskSelector by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var isLoadingTask by remember { mutableStateOf(false) }
     
     // Load selected task if taskId is provided
     LaunchedEffect(taskId) {
         if (taskId != null) {
-            selectedTask = taskViewModel.getTaskById(taskId)
-            if (selectedTask != null) {
-                pomodoroViewModel.startSession(taskId)
+            isLoadingTask = true
+            try {
+                selectedTask = taskViewModel.getTaskById(taskId)
+                if (selectedTask != null) {
+                    pomodoroViewModel.startSession(taskId)
+                }
+            } catch (e: Exception) {
+                // Handle error silently or show error message
+                selectedTask = null
+            } finally {
+                isLoadingTask = false
             }
         }
     }
@@ -89,227 +98,314 @@ fun PomodoroScreen(
         )
         
         // Content
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Selected Task Card
-            selectedTask?.let { task ->
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 24.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
+        if (pomodoroUiState.isLoading) {
+            // Show loading state
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Memuat Pomodoro...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Selected Task Card
+                selectedTask?.let { task ->
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top
+                            Column(
+                                modifier = Modifier.padding(16.dp)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Working on:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    Text(
-                                        text = task.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    if (task.description.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = task.description,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                            text = "Sedang mengerjakan:",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = task.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        if (task.description.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = task.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                            )
+                                        }
+                                    }
+                                    
+                                    IconButton(
+                                        onClick = { 
+                                            selectedTask = null
+                                            pomodoroViewModel.stopSession()
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Remove task",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     }
                                 }
                                 
-                                IconButton(
-                                    onClick = { 
-                                        selectedTask = null
-                                        pomodoroViewModel.stopSession()
+                                if (task.pomodoroCount > 0) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Timer,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "${task.pomodoroCount} sesi selesai",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
                                     }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Remove task",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                            
-                            if (task.pomodoroCount > 0) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Timer,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "${task.pomodoroCount} completed sessions",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
                                 }
                             }
                         }
                     }
                 }
-            }
-            
-            // Pomodoro Timer
-            item {
-                PomodoroTimer(
-                    pomodoroState = pomodoroUiState.pomodoroState,
-                    onStartClick = { pomodoroViewModel.startTimer() },
-                    onPauseClick = { pomodoroViewModel.pauseTimer() },
-                    onStopClick = { pomodoroViewModel.stopTimer() },
-                    onSkipClick = { pomodoroViewModel.skipSession() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp)
-                )
-            }
-            
-            // Statistics Cards
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Today's Progress
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                // No Task Selected State
+                if (selectedTask == null && !isLoadingTask) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "${pomodoroUiState.completedSessionsToday}",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Today",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    // Total Sessions
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Timer,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "${pomodoroUiState.totalSessionsCompleted}",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Total",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // Quick Actions
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Quick Actions",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { pomodoroViewModel.resetSession() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Reset")
-                            }
-                            
-                            OutlinedButton(
-                                onClick = { showTaskSelector = true },
-                                modifier = Modifier.weight(1f)
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Assignment,
                                     contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Select Task")
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Text(
+                                    text = "Belum ada tugas dipilih",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Text(
+                                    text = "Pilih tugas untuk memulai sesi Pomodoro",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Button(
+                                    onClick = { showTaskSelector = true }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Assignment,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Pilih Tugas")
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Pomodoro Timer
+                item {
+                    PomodoroTimer(
+                        pomodoroState = pomodoroUiState.pomodoroState,
+                        onStartClick = { 
+                            if (selectedTask != null) {
+                                pomodoroViewModel.startTimer()
+                            } else {
+                                showTaskSelector = true
+                            }
+                        },
+                        onPauseClick = { pomodoroViewModel.pauseTimer() },
+                        onStopClick = { pomodoroViewModel.stopTimer() },
+                        onSkipClick = { pomodoroViewModel.skipSession() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(400.dp)
+                    )
+                }
+                
+                // Statistics Cards
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Today's Progress
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "${pomodoroUiState.completedSessionsToday}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Hari Ini",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
+                        // Total Sessions
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "${pomodoroUiState.totalSessionsCompleted}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Total",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Quick Actions
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Aksi Cepat",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { pomodoroViewModel.resetSession() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Reset")
+                                }
+                                
+                                OutlinedButton(
+                                    onClick = { showTaskSelector = true },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Assignment,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Pilih Tugas")
+                                }
                             }
                         }
                     }
@@ -341,6 +437,14 @@ fun PomodoroScreen(
             onDismiss = { showSettings = false }
         )
     }
+    
+    // Error handling
+    pomodoroUiState.error?.let { error ->
+        LaunchedEffect(error) {
+            // Show error snackbar or handle error
+            pomodoroViewModel.clearError()
+        }
+    }
 }
 
 @Composable
@@ -351,7 +455,7 @@ fun TaskSelectorDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select a Task") },
+        title = { Text("Pilih Tugas") },
         text = {
             if (tasks.isEmpty()) {
                 Column(
@@ -366,7 +470,7 @@ fun TaskSelectorDialog(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No active tasks available",
+                        text = "Tidak ada tugas aktif tersedia",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -388,7 +492,7 @@ fun TaskSelectorDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Batal")
             }
         }
     )
@@ -437,7 +541,7 @@ fun PomodoroSettingsDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pomodoro Settings") },
+        title = { Text("Pengaturan Pomodoro") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -445,7 +549,7 @@ fun PomodoroSettingsDialog(
                 // Work duration
                 Column {
                     Text(
-                        text = "Work Duration (minutes)",
+                        text = "Durasi Kerja (menit)",
                         style = MaterialTheme.typography.titleSmall
                     )
                     Slider(
@@ -455,7 +559,7 @@ fun PomodoroSettingsDialog(
                         steps = 58
                     )
                     Text(
-                        text = "${tempSettings.workDuration} minutes",
+                        text = "${tempSettings.workDuration} menit",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -464,7 +568,7 @@ fun PomodoroSettingsDialog(
                 // Short break duration
                 Column {
                     Text(
-                        text = "Short Break (minutes)",
+                        text = "Istirahat Pendek (menit)",
                         style = MaterialTheme.typography.titleSmall
                     )
                     Slider(
@@ -474,7 +578,7 @@ fun PomodoroSettingsDialog(
                         steps = 28
                     )
                     Text(
-                        text = "${tempSettings.shortBreakDuration} minutes",
+                        text = "${tempSettings.shortBreakDuration} menit",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -483,7 +587,7 @@ fun PomodoroSettingsDialog(
                 // Long break duration
                 Column {
                     Text(
-                        text = "Long Break (minutes)",
+                        text = "Istirahat Panjang (menit)",
                         style = MaterialTheme.typography.titleSmall
                     )
                     Slider(
@@ -493,7 +597,7 @@ fun PomodoroSettingsDialog(
                         steps = 54
                     )
                     Text(
-                        text = "${tempSettings.longBreakDuration} minutes",
+                        text = "${tempSettings.longBreakDuration} menit",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -502,7 +606,7 @@ fun PomodoroSettingsDialog(
                 // Sessions before long break
                 Column {
                     Text(
-                        text = "Sessions before Long Break",
+                        text = "Sesi sebelum Istirahat Panjang",
                         style = MaterialTheme.typography.titleSmall
                     )
                     Slider(
@@ -512,7 +616,7 @@ fun PomodoroSettingsDialog(
                         steps = 5
                     )
                     Text(
-                        text = "${tempSettings.sessionsBeforeLongBreak} sessions",
+                        text = "${tempSettings.sessionsBeforeLongBreak} sesi",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -526,12 +630,12 @@ fun PomodoroSettingsDialog(
                     onDismiss()
                 }
             ) {
-                Text("Save")
+                Text("Simpan")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Batal")
             }
         }
     )

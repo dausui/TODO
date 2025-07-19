@@ -44,10 +44,30 @@ fun TodoScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var showErrorSnackbar by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
     
     // Update search when query changes
     LaunchedEffect(searchQuery) {
         taskViewModel.searchTasks(searchQuery)
+    }
+    
+    // Handle error messages
+    LaunchedEffect(taskUiState.error) {
+        taskUiState.error?.let { error ->
+            errorMessage = error
+            showErrorSnackbar = true
+            taskViewModel.clearError()
+        }
+    }
+    
+    // Handle pagination errors
+    LaunchedEffect(paginationState.error) {
+        paginationState.error?.let { error ->
+            errorMessage = error
+            showErrorSnackbar = true
+            taskViewModel.clearPaginationError()
+        }
     }
     
     Column(
@@ -117,7 +137,7 @@ fun TodoScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search tasks...") },
+                    placeholder = { Text("Cari tugas...") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -155,7 +175,7 @@ fun TodoScreen(
                         FilterChip(
                             selected = true,
                             onClick = { taskViewModel.filterByCategory(null) },
-                            label = { Text("Category: ${taskFilter.category}") },
+                            label = { Text("Kategori: ${taskFilter.category}") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -173,7 +193,7 @@ fun TodoScreen(
                         FilterChip(
                             selected = true,
                             onClick = { taskViewModel.filterByPriority(null) },
-                            label = { Text("Priority: ${priority?.displayName ?: "None"}") },
+                            label = { Text("Prioritas: ${priority?.displayName ?: "None"}") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -190,7 +210,7 @@ fun TodoScreen(
                         FilterChip(
                             selected = true,
                             onClick = { taskViewModel.showCompleted(true) },
-                            label = { Text("Hide Completed") },
+                            label = { Text("Sembunyikan Selesai") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -207,7 +227,7 @@ fun TodoScreen(
                         FilterChip(
                             selected = true,
                             onClick = { taskViewModel.showActive(true) },
-                            label = { Text("Hide Active") },
+                            label = { Text("Sembunyikan Aktif") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -249,7 +269,7 @@ fun TodoScreen(
                         )
                     }
                     
-                    taskUiState.tasks.isEmpty() -> {
+                    taskUiState.tasks.isEmpty() && !taskUiState.isLoading -> {
                         EmptyTasksState(
                             onAddTaskClick = onNavigateToAddTask,
                             modifier = Modifier.align(Alignment.Center)
@@ -304,10 +324,19 @@ fun TodoScreen(
     }
     
     // Error Snackbar
-    taskUiState.error?.let { error ->
-        LaunchedEffect(error) {
-            // Show snackbar
-            taskViewModel.clearError()
+    if (showErrorSnackbar) {
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            action = {
+                TextButton(
+                    onClick = { showErrorSnackbar = false }
+                ) {
+                    Text("Tutup")
+                }
+            },
+            onDismiss = { showErrorSnackbar = false }
+        ) {
+            Text(errorMessage)
         }
     }
 }
@@ -331,7 +360,7 @@ fun EmptyTasksState(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "No tasks yet",
+            text = "Belum ada tugas",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -340,7 +369,7 @@ fun EmptyTasksState(
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Add your first task to get started with productivity!",
+            text = "Tambahkan tugas pertama Anda untuk memulai produktivitas!",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -357,7 +386,7 @@ fun EmptyTasksState(
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Task")
+            Text("Tambah Tugas")
         }
     }
 }

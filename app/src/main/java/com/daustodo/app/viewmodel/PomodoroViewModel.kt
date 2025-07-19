@@ -34,23 +34,30 @@ class PomodoroViewModel @Inject constructor(
     
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            val binder = service as PomodoroService.PomodoroServiceBinder
-            pomodoroService = binder.getService()
-            bound = true
-            
-            // Observe service state
-            viewModelScope.launch {
-                pomodoroService?.pomodoroState?.collect { state ->
-                    _uiState.value = _uiState.value.copy(
-                        pomodoroState = state,
-                        isLoading = false
-                    )
-                    
-                    // Update statistics when session completes
-                    if (!state.isRunning && !state.isPaused && state.timeRemaining == 0) {
-                        loadStatistics()
+            try {
+                val binder = service as PomodoroService.PomodoroServiceBinder
+                pomodoroService = binder.getService()
+                bound = true
+                
+                // Observe service state
+                viewModelScope.launch {
+                    pomodoroService?.pomodoroState?.collect { state ->
+                        _uiState.value = _uiState.value.copy(
+                            pomodoroState = state,
+                            isLoading = false
+                        )
+                        
+                        // Update statistics when session completes
+                        if (!state.isRunning && !state.isPaused && state.timeRemaining == 0) {
+                            loadStatistics()
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Gagal terhubung ke layanan Pomodoro: ${e.message}",
+                    isLoading = false
+                )
             }
         }
         
@@ -66,90 +73,170 @@ class PomodoroViewModel @Inject constructor(
     }
     
     private fun bindToService() {
-        Intent(context, PomodoroService::class.java).also { intent ->
-            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        try {
+            Intent(context, PomodoroService::class.java).also { intent ->
+                context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal memulai layanan Pomodoro: ${e.message}",
+                isLoading = false
+            )
         }
     }
     
     private fun loadStatistics() {
         viewModelScope.launch {
             try {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+                
                 val todayStats = pomodoroRepository.getCompletedWorkSessionsToday()
                 val totalStats = pomodoroRepository.getTotalCompletedSessions()
                 
                 _uiState.value = _uiState.value.copy(
                     completedSessionsToday = todayStats,
                     totalSessionsCompleted = totalStats,
-                    error = null
+                    error = null,
+                    isLoading = false
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
+                _uiState.value = _uiState.value.copy(
+                    error = "Gagal memuat statistik: ${e.message}",
+                    isLoading = false
+                )
             }
         }
     }
     
-    fun startSession(taskId: Long? = null, type: PomodoroType = PomodoroType.WORK) {
-        pomodoroService?.startSession(taskId, type)
+    fun startSession(taskId: Long?, type: PomodoroType = PomodoroType.WORK) {
+        try {
+            if (pomodoroService != null) {
+                pomodoroService?.startSession(taskId, type)
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    error = "Layanan Pomodoro belum siap"
+                )
+            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal memulai sesi: ${e.message}"
+            )
+        }
     }
     
     fun startTimer() {
-        pomodoroService?.startTimer()
+        try {
+            if (pomodoroService != null) {
+                pomodoroService?.startTimer()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    error = "Layanan Pomodoro belum siap"
+                )
+            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal memulai timer: ${e.message}"
+            )
+        }
     }
     
     fun pauseTimer() {
-        pomodoroService?.pauseTimer()
+        try {
+            pomodoroService?.pauseTimer()
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal menjeda timer: ${e.message}"
+            )
+        }
     }
     
     fun stopTimer() {
-        pomodoroService?.stopTimer()
+        try {
+            pomodoroService?.stopTimer()
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal menghentikan timer: ${e.message}"
+            )
+        }
     }
     
     fun skipSession() {
-        pomodoroService?.skipSession()
+        try {
+            pomodoroService?.skipSession()
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal melewati sesi: ${e.message}"
+            )
+        }
     }
     
     fun resetSession() {
-        val currentState = _uiState.value.pomodoroState
-        val settings = _uiState.value.settings
-        val defaultDuration = when (currentState.currentType) {
-            PomodoroType.WORK -> settings.workDuration
-            PomodoroType.SHORT_BREAK -> settings.shortBreakDuration
-            PomodoroType.LONG_BREAK -> settings.longBreakDuration
-        } * 60
-        
-        _uiState.value = _uiState.value.copy(
-            pomodoroState = currentState.copy(
-                timeRemaining = defaultDuration,
-                isRunning = false,
-                isPaused = false
+        try {
+            val currentState = _uiState.value.pomodoroState
+            val settings = _uiState.value.settings
+            val defaultDuration = when (currentState.currentType) {
+                PomodoroType.WORK -> settings.workDuration
+                PomodoroType.SHORT_BREAK -> settings.shortBreakDuration
+                PomodoroType.LONG_BREAK -> settings.longBreakDuration
+            } * 60
+            
+            _uiState.value = _uiState.value.copy(
+                pomodoroState = currentState.copy(
+                    timeRemaining = defaultDuration,
+                    isRunning = false,
+                    isPaused = false
+                )
             )
-        )
-        
-        pomodoroService?.resetTimer(defaultDuration)
+            
+            pomodoroService?.resetTimer(defaultDuration)
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal mereset sesi: ${e.message}"
+            )
+        }
     }
     
     fun updateSettings(settings: PomodoroSettings) {
-        _uiState.value = _uiState.value.copy(settings = settings)
-        
-        // Update service with new settings
-        pomodoroService?.updateSettings(settings)
-        
-        // Reset current session if timer is not running
-        val currentState = _uiState.value.pomodoroState
-        if (!currentState.isRunning && !currentState.isPaused) {
-            resetSession()
+        try {
+            _uiState.value = _uiState.value.copy(settings = settings)
+            
+            // Update service with new settings
+            pomodoroService?.updateSettings(settings)
+            
+            // Reset current session if timer is not running
+            val currentState = _uiState.value.pomodoroState
+            if (!currentState.isRunning && !currentState.isPaused) {
+                resetSession()
+            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal memperbarui pengaturan: ${e.message}"
+            )
         }
     }
     
     fun setCustomDuration(minutes: Int) {
-        val currentState = _uiState.value.pomodoroState
-        _uiState.value = _uiState.value.copy(
-            pomodoroState = currentState.copy(
-                timeRemaining = minutes * 60
+        try {
+            if (minutes <= 0) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Durasi harus lebih dari 0 menit"
+                )
+                return
+            }
+            
+            val currentState = _uiState.value.pomodoroState
+            _uiState.value = _uiState.value.copy(
+                pomodoroState = currentState.copy(
+                    timeRemaining = minutes * 60
+                )
             )
-        )
-        
-        pomodoroService?.setCustomDuration(minutes * 60)
+            
+            pomodoroService?.setCustomDuration(minutes * 60)
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "Gagal mengatur durasi: ${e.message}"
+            )
+        }
     }
     
     fun resetToDefault() {
@@ -160,11 +247,19 @@ class PomodoroViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
     
+    fun refreshStatistics() {
+        loadStatistics()
+    }
+    
     override fun onCleared() {
         super.onCleared()
-        if (bound) {
-            context.unbindService(connection)
-            bound = false
+        try {
+            if (bound) {
+                context.unbindService(connection)
+                bound = false
+            }
+        } catch (e: Exception) {
+            // Ignore cleanup errors
         }
     }
 }

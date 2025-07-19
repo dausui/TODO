@@ -19,9 +19,9 @@ fun SkeletonTaskCard(
     modifier: Modifier = Modifier
 ) {
     val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.3f),
+        Color.LightGray.copy(alpha = 0.4f),
         Color.LightGray.copy(alpha = 0.1f),
-        Color.LightGray.copy(alpha = 0.3f)
+        Color.LightGray.copy(alpha = 0.4f)
     )
     
     val transition = rememberInfiniteTransition()
@@ -30,7 +30,7 @@ fun SkeletonTaskCard(
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 1500,
+                durationMillis = 1800,
                 easing = LinearEasing
             ),
             repeatMode = RepeatMode.Restart
@@ -159,17 +159,90 @@ fun SkeletonLoadingState(
     ) {
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Loading indicator
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            color = MaterialTheme.colorScheme.primary
+        // Loading indicator with better visibility
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 4.dp
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Loading text with better visibility
+        Text(
+            text = "Memuat tugas Anda...",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Loading your tasks...",
-            style = MaterialTheme.typography.bodyLarge,
+            text = "Mohon tunggu sebentar",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Skeleton cards with better spacing
+        SkeletonTaskList(
+            itemCount = 3,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+    }
+}
+
+@Composable
+fun SkeletonLoadingStateWithProgress(
+    progress: Float = 0f,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Progress indicator
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(40.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                progress = progress,
+                modifier = Modifier.size(64.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 6.dp
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Memuat data...",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "${(progress * 100).toInt()}% selesai",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
@@ -177,7 +250,7 @@ fun SkeletonLoadingState(
         
         // Skeleton cards
         SkeletonTaskList(
-            itemCount = 3,
+            itemCount = 2,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }
